@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+
+    <class name="bsuir.filipovich.accountingserver.entities.TransactionEntity" table="transaction" schema="accounting">
+        <id name="transactionId">
+            <column name="transaction_id" sql-type="int"/>
+        </id>
+        <property name="date">
+            <column name="date" sql-type="timestamp"/>
+        </property>
+        <many-to-one name="storeByStoreId" class="bsuir.filipovich.accountingserver.entities.StoreEntity">
+            <column name="store_id"/>
+        </many-to-one>
+    </class>
+</hibernate-mapping>

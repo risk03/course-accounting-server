@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+
+    <class name="bsuir.filipovich.accountingserver.entities.UserEntity" table="user" schema="accounting">
+        <id name="userId">
+            <column name="user_id" sql-type="int"/>
+        </id>
+        <property name="surname">
+            <column name="surname" sql-type="varchar(45)" length="45"/>
+        </property>
+        <property name="forename">
+            <column name="forename" sql-type="varchar(45)" length="45"/>
+        </property>
+        <property name="patronymic">
+            <column name="patronymic" sql-type="varchar(45)" length="45" not-null="true"/>
+        </property>
+        <property name="role">
+            <column name="role" sql-type="enum('кассир', 'заведующий')"/>
+        </property>
+        <property name="login">
+            <column name="login" sql-type="varchar(45)" length="45"/>
+        </property>
+        <property name="salt">
+            <column name="salt" sql-type="varchar(32)" length="32"/>
+        </property>
+        <property name="password">
+            <column name="password" sql-type="varchar(32)" length="32"/>
+        </property>
+    </class>
+</hibernate-mapping>

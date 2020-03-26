@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+
+    <class name="bsuir.filipovich.accountingserver.entities.StoreEntity" table="store" schema="accounting">
+        <id name="storeId">
+            <column name="store_id" sql-type="int"/>
+        </id>
+        <property name="region">
+            <column name="region" sql-type="varchar(45)" length="45" not-null="true"/>
+        </property>
+        <property name="city">
+            <column name="city" sql-type="varchar(45)" length="45"/>
+        </property>
+        <property name="street">
+            <column name="street" sql-type="varchar(45)" length="45"/>
+        </property>
+        <property name="number">
+            <column name="number" sql-type="varchar(45)" length="45"/>
+        </property>
+        <property name="building">
+            <column name="building" sql-type="varchar(45)" length="45" not-null="true"/>
+        </property>
+    </class>
+</hibernate-mapping>

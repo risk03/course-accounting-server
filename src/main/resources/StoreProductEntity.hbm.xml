@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+
+    <class name="bsuir.filipovich.accountingserver.entities.StoreProductEntity" table="store_product"
+           schema="accounting">
+        <id name="storeProductId">
+            <column name="store_product_id" sql-type="int"/>
+        </id>
+        <property name="quantity">
+            <column name="quantity" sql-type="decimal(10,3)" precision="10" scale="3"/>
+        </property>
+        <many-to-one name="storeByStoreId" class="bsuir.filipovich.accountingserver.entities.StoreEntity">
+            <column name="store_id"/>
+        </many-to-one>
+        <many-to-one name="productByProductId" class="bsuir.filipovich.accountingserver.entities.ProductEntity">
+            <column name="product_id"/>
+        </many-to-one>
+    </class>
+</hibernate-mapping>
