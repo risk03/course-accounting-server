@@ -1,5 +1,6 @@
 package bsuir.filipovich.accountingserver;
 
+import bsuir.filipovich.accountingserver.entities.UserEntity;
 import org.hibernate.HibernateException;
 import org.hibernate.Metamodel;
 import org.hibernate.Session;
@@ -8,8 +9,6 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import javax.persistence.metamodel.EntityType;
 
 @SpringBootApplication
 public class AccountingServerApplication {
@@ -31,19 +30,14 @@ public class AccountingServerApplication {
         return ourSessionFactory.openSession();
     }
 
-
     public static void main(String[] args) {
         SpringApplication.run(AccountingServerApplication.class, args);
         try (Session session = getSession()) {
-            System.out.println("querying all the managed entities...");
             final Metamodel metamodel = session.getSessionFactory().getMetamodel();
-            for (EntityType<?> entityType : metamodel.getEntities()) {
-                final String entityName = entityType.getName();
-                final Query query = session.createQuery("from " + entityName);
-                System.out.println("executing: " + query.getQueryString());
-                for (Object o : query.list()) {
-                    System.out.println("  " + o);
-                }
+            final Query query = session.createQuery("from UserEntity");
+            System.out.println("executing: " + query.getQueryString());
+            for (Object o : query.list()) {
+                System.out.println("  " + ((UserEntity) o).getSurname());
             }
         }
     }
