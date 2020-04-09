@@ -1,5 +1,6 @@
 package bsuir.filipovich.accountingserver.service;
 
+import bsuir.filipovich.accountingserver.entities.StoreEntity;
 import bsuir.filipovich.accountingserver.entities.UserEntity;
 import org.hibernate.HibernateException;
 import org.hibernate.Metamodel;
@@ -42,6 +43,20 @@ public class Service implements IService {
     }
 
     @Override
+    public ArrayList<String[]> getStoresList() {
+        ArrayList<String[]> arr = new ArrayList<>();
+        try (Session session = getSession()) {
+            final Metamodel metamodel = session.getSessionFactory().getMetamodel();
+            final Query query = session.createQuery("from StoreEntity");
+            for (Object o : query.list()) {
+                StoreEntity store = (StoreEntity) o;
+                arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding()});
+            }
+        }
+        return arr;
+    }
+
+    @Override
     public String getMessage() {
         return "zankoku no tenshi";
     }
@@ -52,6 +67,9 @@ public class Service implements IService {
             case "user":
                 creoUser(strings);
                 break;
+            case "store":
+                creoStore(strings);
+                break;
         }
     }
 
@@ -61,7 +79,9 @@ public class Service implements IService {
             case "user":
                 mutoUser(strings);
                 break;
-
+            case "store":
+                mutoStore(strings);
+                break;
         }
     }
 
@@ -70,6 +90,9 @@ public class Service implements IService {
         switch (type) {
             case "user":
                 perdoUser(id);
+                break;
+            case "store":
+                perdoStore(id);
                 break;
         }
     }
@@ -88,6 +111,23 @@ public class Service implements IService {
         session.beginTransaction();
         session.save(user);
         session.getTransaction().commit();
+    }
+
+    private void creoStore(String[] strings) {
+        StoreEntity store = new StoreEntity();
+        store.setStoreId(Integer.parseInt(strings[0]));
+//        user.setUserId(Integer.parseInt(strings[0]));
+//        user.setSurname(strings[1]);
+//        user.setForename(strings[2]);
+//        user.setPatronymic(strings[3]);
+//        user.setRole(strings[4]);
+//        user.setLogin(strings[5]);
+//        user.setSalt(strings[6]);
+//        user.setPassword(strings[7]);
+//        Session session = getSession();
+//        session.beginTransaction();
+//        session.save(user);
+//        session.getTransaction().commit();
     }
 
     private void mutoUser(String[] strings) {
@@ -112,11 +152,41 @@ public class Service implements IService {
         session.getTransaction().commit();
     }
 
+    private void mutoStore(String[] strings) {
+//        Session session = getSession();
+//        UserEntity user = session.load(UserEntity.class, Integer.parseInt(strings[0]));
+//        if (strings[1] != null)
+//            user.setSurname(strings[1]);
+//        if (strings[2] != null)
+//            user.setForename(strings[2]);
+//        if (strings[3] != null)
+//            user.setPatronymic(strings[3]);
+//        if (strings[4] != null)
+//            user.setRole(strings[4]);
+//        if (strings[5] != null)
+//            user.setLogin(strings[5]);
+//        if (strings[6] != null)
+//            user.setSalt(strings[6]);
+//        if (strings[7] != null)
+//            user.setPassword(strings[7]);
+//        session.beginTransaction();
+//        session.save(user);
+//        session.getTransaction().commit();
+    }
+
     private void perdoUser(String id) {
         Session session = getSession();
         session.beginTransaction();
         UserEntity myObject = session.load(UserEntity.class, Integer.parseInt(id));
         session.delete(myObject);
         session.getTransaction().commit();
+    }
+
+    private void perdoStore(String id) {
+//        Session session = getSession();
+//        session.beginTransaction();
+//        UserEntity myObject = session.load(UserEntity.class, Integer.parseInt(id));
+//        session.delete(myObject);
+//        session.getTransaction().commit();
     }
 }
