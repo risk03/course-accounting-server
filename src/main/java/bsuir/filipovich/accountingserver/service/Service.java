@@ -1,14 +1,15 @@
 package bsuir.filipovich.accountingserver.service;
 
+import bsuir.filipovich.accountingserver.entities.ProductEntity;
 import bsuir.filipovich.accountingserver.entities.StoreEntity;
 import bsuir.filipovich.accountingserver.entities.UserEntity;
 import org.hibernate.HibernateException;
-import org.hibernate.Metamodel;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 
 public class Service implements IService {
@@ -29,34 +30,6 @@ public class Service implements IService {
     }
 
     @Override
-    public ArrayList<String[]> getUserList() {
-        ArrayList<String[]> arr = new ArrayList<>();
-        try (Session session = getSession()) {
-            final Metamodel metamodel = session.getSessionFactory().getMetamodel();
-            final Query query = session.createQuery("from UserEntity");
-            for (Object o : query.list()) {
-                UserEntity user = (UserEntity) o;
-                arr.add(new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()});
-            }
-        }
-        return arr;
-    }
-
-    @Override
-    public ArrayList<String[]> getStoresList() {
-        ArrayList<String[]> arr = new ArrayList<>();
-        try (Session session = getSession()) {
-            final Metamodel metamodel = session.getSessionFactory().getMetamodel();
-            final Query query = session.createQuery("from StoreEntity");
-            for (Object o : query.list()) {
-                StoreEntity store = (StoreEntity) o;
-                arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding()});
-            }
-        }
-        return arr;
-    }
-
-    @Override
     public String getMessage() {
         return "zankoku no tenshi";
     }
@@ -70,7 +43,28 @@ public class Service implements IService {
             case "store":
                 creoStore(strings);
                 break;
+            case "product":
+                creoProduct(strings);
+                break;
         }
+    }
+
+    @Override
+    public ArrayList<String[]> readAll(String type) {
+        ArrayList<String[]> arr = null;
+        try (Session session = getSession()) {
+            switch (type) {
+                case "user":
+                    arr = intellegoUsers(session);
+                    break;
+                case "store":
+                    arr = intellegoStores(session);
+                    break;
+                case "product":
+                    arr = intellegoProducts(session);
+            }
+        }
+        return arr;
     }
 
     @Override
@@ -81,6 +75,9 @@ public class Service implements IService {
                 break;
             case "store":
                 mutoStore(strings);
+                break;
+            case "product":
+                mutoProduct(strings);
                 break;
         }
     }
@@ -94,6 +91,8 @@ public class Service implements IService {
             case "store":
                 perdoStore(id);
                 break;
+            case "product":
+                perdoProduct(id);
         }
     }
 
@@ -116,18 +115,57 @@ public class Service implements IService {
     private void creoStore(String[] strings) {
         StoreEntity store = new StoreEntity();
         store.setStoreId(Integer.parseInt(strings[0]));
-//        user.setUserId(Integer.parseInt(strings[0]));
-//        user.setSurname(strings[1]);
-//        user.setForename(strings[2]);
-//        user.setPatronymic(strings[3]);
-//        user.setRole(strings[4]);
-//        user.setLogin(strings[5]);
-//        user.setSalt(strings[6]);
-//        user.setPassword(strings[7]);
-//        Session session = getSession();
-//        session.beginTransaction();
-//        session.save(user);
-//        session.getTransaction().commit();
+        store.setRegion(strings[1]);
+        store.setCity(strings[2]);
+        store.setStreet(strings[3]);
+        store.setNumber(strings[4]);
+        store.setBuilding(strings[5]);
+        Session session = getSession();
+        session.beginTransaction();
+        session.save(store);
+        session.getTransaction().commit();
+    }
+
+    private void creoProduct(String[] strings) {
+        ProductEntity product = new ProductEntity();
+        product.setProductId(Integer.parseInt(strings[0]));
+        product.setName(strings[1]);
+        product.setSellingPrice(BigDecimal.valueOf(Float.parseFloat(strings[2])));
+        product.setDescription(strings[3]);
+        Session session = getSession();
+        session.beginTransaction();
+        session.save(product);
+        session.getTransaction().commit();
+    }
+
+    private ArrayList<String[]> intellegoUsers(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from UserEntity");
+        for (Object o : query.list()) {
+            UserEntity user = (UserEntity) o;
+            arr.add(new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()});
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoStores(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from StoreEntity");
+        for (Object o : query.list()) {
+            StoreEntity store = (StoreEntity) o;
+            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding()});
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoProducts(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from ProductEntity");
+        for (Object o : query.list()) {
+            ProductEntity product = (ProductEntity) o;
+            arr.add(new String[]{String.valueOf(product.getProductId()), product.getName(), product.getSellingPrice().toString(), product.getDescription()});
+        }
+        return arr;
     }
 
     private void mutoUser(String[] strings) {
@@ -153,40 +191,58 @@ public class Service implements IService {
     }
 
     private void mutoStore(String[] strings) {
-//        Session session = getSession();
-//        UserEntity user = session.load(UserEntity.class, Integer.parseInt(strings[0]));
-//        if (strings[1] != null)
-//            user.setSurname(strings[1]);
-//        if (strings[2] != null)
-//            user.setForename(strings[2]);
-//        if (strings[3] != null)
-//            user.setPatronymic(strings[3]);
-//        if (strings[4] != null)
-//            user.setRole(strings[4]);
-//        if (strings[5] != null)
-//            user.setLogin(strings[5]);
-//        if (strings[6] != null)
-//            user.setSalt(strings[6]);
-//        if (strings[7] != null)
-//            user.setPassword(strings[7]);
-//        session.beginTransaction();
-//        session.save(user);
-//        session.getTransaction().commit();
+        Session session = getSession();
+        StoreEntity store = session.load(StoreEntity.class, Integer.parseInt(strings[0]));
+        if (strings[1] != null)
+            store.setRegion(strings[1]);
+        if (strings[2] != null)
+            store.setCity(strings[2]);
+        if (strings[3] != null)
+            store.setStreet(strings[3]);
+        if (strings[4] != null)
+            store.setNumber(strings[4]);
+        if (strings[5] != null)
+            store.setBuilding(strings[5]);
+        session.beginTransaction();
+        session.save(store);
+        session.getTransaction().commit();
+    }
+
+    private void mutoProduct(String[] strings) {
+        Session session = getSession();
+        ProductEntity product = session.load(ProductEntity.class, Integer.parseInt(strings[0]));
+        if (strings[1] != null)
+            product.setName(strings[1]);
+        if (strings[2] != null)
+            product.setSellingPrice(BigDecimal.valueOf(Float.parseFloat(strings[2])));
+        if (strings[3] != null)
+            product.setDescription(strings[3]);
+        session.beginTransaction();
+        session.save(product);
+        session.getTransaction().commit();
     }
 
     private void perdoUser(String id) {
         Session session = getSession();
         session.beginTransaction();
-        UserEntity myObject = session.load(UserEntity.class, Integer.parseInt(id));
-        session.delete(myObject);
+        UserEntity user = session.load(UserEntity.class, Integer.parseInt(id));
+        session.delete(user);
         session.getTransaction().commit();
     }
 
     private void perdoStore(String id) {
-//        Session session = getSession();
-//        session.beginTransaction();
-//        UserEntity myObject = session.load(UserEntity.class, Integer.parseInt(id));
-//        session.delete(myObject);
-//        session.getTransaction().commit();
+        Session session = getSession();
+        session.beginTransaction();
+        StoreEntity store = session.load(StoreEntity.class, Integer.parseInt(id));
+        session.delete(store);
+        session.getTransaction().commit();
+    }
+
+    private void perdoProduct(String id) {
+        Session session = getSession();
+        session.beginTransaction();
+        ProductEntity product = session.load(ProductEntity.class, Integer.parseInt(id));
+        session.delete(product);
+        session.getTransaction().commit();
     }
 }
