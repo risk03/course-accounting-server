@@ -2,6 +2,7 @@ package bsuir.filipovich.accountingserver.service;
 
 import bsuir.filipovich.accountingserver.entities.ProductEntity;
 import bsuir.filipovich.accountingserver.entities.StoreEntity;
+import bsuir.filipovich.accountingserver.entities.StoreProductEntity;
 import bsuir.filipovich.accountingserver.entities.UserEntity;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
@@ -62,6 +63,31 @@ public class Service implements IService {
                     break;
                 case "product":
                     arr = intellegoProducts(session);
+            }
+        }
+        return arr;
+    }
+
+    @Override
+    public ArrayList<String[]> readAll(String type, int id) {
+        ArrayList<String[]> arr = null;
+        try (Session session = getSession()) {
+            switch (type) {
+                case "assortment":
+                    arr = intellegoAssortment(session, id);
+                    break;
+            }
+        }
+        return arr;
+    }
+
+    @Override
+    public String[] readOne(String type, int id) {
+        String[] arr = null;
+        try (Session session = getSession()) {
+            switch (type) {
+                case "store":
+                    arr = intellegoStore(session, id);
             }
         }
         return arr;
@@ -168,6 +194,38 @@ public class Service implements IService {
         return arr;
     }
 
+    private ArrayList<String[]> intellegoAssortment(Session session, int id) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :id");
+        query.setParameter("id", session.load(StoreEntity.class, id));
+        for (Object o : query.list()) {
+            StoreProductEntity entry = (StoreProductEntity) o;
+            arr.add(new String[]{
+                    entry.getProductByProductId().getProductId() + " - " + entry.getProductByProductId().getName(),
+                    String.valueOf(entry.getQuantity())
+            });
+        }
+        return arr;
+    }
+
+    private String[] intellegoStore(Session session, int id) {
+        String[] arr = null;
+        final Query query = session.createQuery("from StoreEntity where storeId = :id");
+        query.setParameter("id", id);
+        for (Object o : query.list()) {
+            StoreEntity store = (StoreEntity) o;
+            arr = new String[]{
+                    String.valueOf(store.getStoreId()),
+                    store.getRegion(),
+                    store.getCity(),
+                    store.getStreet(),
+                    store.getNumber(),
+                    store.getBuilding()
+            };
+        }
+        return arr;
+    }
+
     private void mutoUser(String[] strings) {
         Session session = getSession();
         UserEntity user = session.load(UserEntity.class, Integer.parseInt(strings[0]));
@@ -245,4 +303,5 @@ public class Service implements IService {
         session.delete(product);
         session.getTransaction().commit();
     }
+
 }

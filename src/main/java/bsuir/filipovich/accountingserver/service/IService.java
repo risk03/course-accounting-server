@@ -7,7 +7,11 @@ public interface IService {
 
     void create(String type, String[] strings);
 
+    String[] readOne(String type, int id);
+
     ArrayList<String[]> readAll(String type);
+
+    ArrayList<String[]> readAll(String type, int id);
 
     void update(String type, String[] strings);
 
