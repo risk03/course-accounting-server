@@ -122,6 +122,28 @@ public class Service implements IService {
         }
     }
 
+    @Override
+    public void setAssortment(int store, int product, Double quantity) {
+        Session session = getSession();
+        StoreEntity storeEntity = session.load(StoreEntity.class, store);
+        ProductEntity productEntity = session.load(ProductEntity.class, product);
+        final Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :store and productByProductId = :product");
+        query.setParameter("store", storeEntity);
+        query.setParameter("product", productEntity);
+        for (Object o : query.list()) {
+            session.remove(o);
+        }
+        if (quantity != 0) {
+            StoreProductEntity newE = new StoreProductEntity();
+            newE.setStoreByStoreId(storeEntity);
+            newE.setProductByProductId(productEntity);
+            newE.setQuantity(BigDecimal.valueOf(quantity));
+            session.beginTransaction();
+            session.persist(newE);
+            session.getTransaction().commit();
+        }
+    }
+
     private void creoUser(String[] strings) {
         UserEntity user = new UserEntity();
         user.setUserId(Integer.parseInt(strings[0]));

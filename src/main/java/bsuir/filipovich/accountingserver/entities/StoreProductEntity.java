@@ -14,6 +14,7 @@ public class StoreProductEntity {
 
     @Id
     @Column(name = "store_product_id", nullable = false)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     public int getStoreProductId() {
         return storeProductId;
     }
