@@ -22,4 +22,6 @@ public interface IService {
     boolean login(String login, String password);
 
     void logout();
+
+    String useBean();
 }

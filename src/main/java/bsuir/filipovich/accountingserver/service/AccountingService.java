@@ -6,14 +6,26 @@ import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 
-@org.springframework.stereotype.Service
-public class Service implements IService {
+@Service
+public class AccountingService implements IService {
     private static final SessionFactory ourSessionFactory;
+    private LoginBean loginBean;
+
+    @Autowired
+    public AccountingService(LoginBean loginBean) {
+        this.loginBean = loginBean;
+    }
+
+    public String useBean() {
+        return loginBean.foo();
+    }
 
     static {
         try {
