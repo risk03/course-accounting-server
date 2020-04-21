@@ -10,6 +10,7 @@ public class TransactionEntity {
     private int transactionId;
     private Timestamp date;
     private StoreEntity storeByStoreId;
+    private UserEntity userByUserId;
 
     @Id
     @Column(name = "transaction_id", nullable = false)
@@ -53,5 +54,15 @@ public class TransactionEntity {
 
     public void setStoreByStoreId(StoreEntity storeByStoreId) {
         this.storeByStoreId = storeByStoreId;
+    }
+
+    @ManyToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
+    public UserEntity getUserByUserId() {
+        return userByUserId;
+    }
+
+    public void setUserByUserId(UserEntity userByUserId) {
+        this.userByUserId = userByUserId;
     }
 }

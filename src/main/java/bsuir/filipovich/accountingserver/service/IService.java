@@ -17,5 +17,9 @@ public interface IService {
 
     void remove(String type, String id);
 
-    void setAssortment(int store, int product, Double quantity);
+    void setAssortment(String type, int root, int product, Double quantity);
+
+    boolean login(String login, String password);
+
+    void logout();
 }

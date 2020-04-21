@@ -15,5 +15,9 @@
         <many-to-one name="productByProductId" class="bsuir.filipovich.accountingserver.entities.ProductEntity">
             <column name="product_id"/>
         </many-to-one>
+        <many-to-one name="transactionByTransactionId"
+                     class="bsuir.filipovich.accountingserver.entities.TransactionEntity">
+            <column name="transaction_id"/>
+        </many-to-one>
     </class>
 </hibernate-mapping>

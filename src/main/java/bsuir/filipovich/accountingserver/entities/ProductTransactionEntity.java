@@ -8,6 +8,7 @@ import java.util.Objects;
 @Table(name = "product_transaction", schema = "accounting")
 public class ProductTransactionEntity {
     private int productTransactionId;
+    private TransactionEntity transactionByTransactionId;
     private BigDecimal quantity;
     private ProductEntity productByProductId;
 
@@ -53,5 +54,15 @@ public class ProductTransactionEntity {
 
     public void setProductByProductId(ProductEntity productByProductId) {
         this.productByProductId = productByProductId;
+    }
+
+    @ManyToOne
+    @JoinColumn(name = "transaction_id", referencedColumnName = "transaction_id", nullable = false)
+    public TransactionEntity getTransactionByTransactionId() {
+        return transactionByTransactionId;
+    }
+
+    public void setTransactionByTransactionId(TransactionEntity transactionByTransactionId) {
+        this.transactionByTransactionId = transactionByTransactionId;
     }
 }
