@@ -5,7 +5,7 @@ import java.util.ArrayList;
 public interface IService {
     String getMessage();
 
-    void create(String type, String[] strings);
+    boolean create(String type, String[] strings);
 
     String[] readOne(String type, int id);
 
@@ -13,9 +13,9 @@ public interface IService {
 
     ArrayList<String[]> readAll(String type, int id);
 
-    void update(String type, String[] strings);
+    boolean update(String type, String[] strings);
 
-    void remove(String type, String id);
+    boolean remove(String type, String id);
 
     void setAssortment(String type, int root, int product, Double quantity);
 

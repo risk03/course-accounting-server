@@ -10,7 +10,6 @@ import org.springframework.remoting.support.RemoteExporter;
 
 @Configuration
 public class Config {
-
     @Autowired
     AccountingService accountingService;
 

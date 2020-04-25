@@ -1,53 +1,81 @@
 package bsuir.filipovich.accountingserver.service;
 
 import bsuir.filipovich.accountingserver.entities.*;
-import org.hibernate.HibernateException;
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
 import org.hibernate.query.Query;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.xml.bind.DatatypeConverter;
 import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 @Service
 public class AccountingService implements IService {
-    private static final SessionFactory ourSessionFactory;
-    private LoginBean loginBean;
+
+    private LoginBean loggedUser;
 
     @Autowired
-    public AccountingService(LoginBean loginBean) {
-        this.loginBean = loginBean;
+    public AccountingService(LoginBean loggedUser) {
+        this.loggedUser = loggedUser;
     }
 
-    public String useBean() {
-        return loginBean.foo();
+    private static Session getSession() {
+        return HibernateUtil.getHibernateSession();
     }
 
-    static {
+    private String getHash(String password) {
+        MessageDigest md = null;
         try {
-            Configuration configuration = new Configuration();
-            configuration.configure();
-            ourSessionFactory = configuration.buildSessionFactory();
-        } catch (Throwable ex) {
-            throw new ExceptionInInitializerError(ex);
+            md = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException ignored) {
         }
-    }
-
-    private static Session getSession() throws HibernateException {
-        return ourSessionFactory.openSession();
+        assert md != null;
+        md.update(password.getBytes());
+        byte[] digest = md.digest();
+        return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
 
     public boolean login(String login, String password) {
-        if (login.equals("login") && password.equals("password")) {
+        if (this.loggedUser.getUser() != null) {
+            return false;
+        } else {
+            Query query = getSession().createQuery("from UserEntity where login = :login");
+            query.setParameter("login", login);
+            List l = query.list();
+            if (l.size() == 0) {
+                return false;
+            } else {
+                UserEntity user = (UserEntity) l.get(0);
+                String hash = this.getHash(password + user.getSalt());
+                if (user.getPassword().equals(hash)) {
+                    this.loggedUser.setUser(String.valueOf(user.getUserId()));
+                    return true;
+                } else {
+                    return false;
+                }
+            }
         }
-        return true;
     }
 
     public void logout() {
+        this.loggedUser.setUser(null);
+    }
+
+    @Override
+    public String[] getLoggedUser() {
+        String id = this.loggedUser.getUser();
+        if (id == null) {
+            return null;
+        } else {
+            UserEntity user = (UserEntity) getSession().load(UserEntity.class, Integer.parseInt(id));
+            return new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()};
+        }
     }
 
     @Override
@@ -56,25 +84,37 @@ public class AccountingService implements IService {
     }
 
     @Override
-    public void create(String type, String[] strings) {
+    public boolean create(String type, String[] strings) {
         switch (type) {
             case "user":
-                creoUser(strings);
+                if (getLoggedUser()[4].equals("Заведующий"))
+                    creoUser(strings);
+                else
+                    return false;
                 break;
             case "store":
-                creoStore(strings);
+                if (getLoggedUser()[4].equals("Заведующий"))
+                    creoStore(strings);
+                else
+                    return false;
                 break;
             case "transaction":
                 creoTransaction(strings);
                 break;
             case "product":
-                creoProduct(strings);
+                if (getLoggedUser()[4].equals("Заведующий"))
+                    creoProduct(strings);
+                else
+                    return false;
                 break;
         }
+        return false;
     }
 
     @Override
     public ArrayList<String[]> readAll(String type) {
+        if (getLoggedUser() == null)
+            return null;
         ArrayList<String[]> arr = null;
         try (Session session = getSession()) {
             switch (type) {
@@ -88,7 +128,7 @@ public class AccountingService implements IService {
                     arr = intellegoProducts(session);
                     break;
                 case "transaction":
-                    arr = intellegoTransaction(session);
+                    arr = intellegoTransactions(session);
                     break;
             }
         }
@@ -96,7 +136,7 @@ public class AccountingService implements IService {
     }
 
     @Override
-    public ArrayList<String[]> readAll(String type, int id) {
+    public ArrayList<String[]> readAll(String type, String id) {
         ArrayList<String[]> arr = null;
         try (Session session = getSession()) {
             switch (type) {
@@ -112,88 +152,139 @@ public class AccountingService implements IService {
     }
 
     @Override
-    public String[] readOne(String type, int id) {
+    public String[] readOne(String type, String id) {
         String[] arr = null;
         try (Session session = getSession()) {
             switch (type) {
+                case "product":
+                    arr = intellegoProduct(session, id);
+                    break;
+                case "user":
+                    arr = intellegoUser(session, id);
+                    break;
                 case "store":
                     arr = intellegoStore(session, id);
+                    break;
                 case "transaction":
-                    arr = intellegoTransaction(session, id);
+                    arr = intellegoTransactions(session, id);
+                    break;
             }
         }
         return arr;
     }
 
     @Override
-    public void update(String type, String[] strings) {
+    public boolean update(String type, String[] strings) {
         switch (type) {
             case "user":
-                mutoUser(strings);
-                break;
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    mutoUser(strings);
+                    return true;
+                }
             case "store":
-                mutoStore(strings);
-                break;
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    mutoStore(strings);
+                    return true;
+                }
             case "transaction":
-                mutoTransaction(strings);
-                break;
+                if (getLoggedUser() == null)
+                    return false;
+                else {
+                    mutoTransaction(strings);
+                    return true;
+                }
             case "product":
-                mutoProduct(strings);
-                break;
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    mutoProduct(strings);
+                    return true;
+                }
         }
+        return false;
     }
 
     @Override
-    public void remove(String type, String id) {
+    public boolean remove(String type, String id) {
         switch (type) {
             case "user":
-                perdoUser(id);
-                break;
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    perdoUser(id);
+                    return true;
+                }
             case "store":
-                perdoStore(id);
-                break;
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    perdoStore(id);
+                    return true;
+                }
             case "transaction":
-                perdoTransaction(id);
-                break;
+                if (getLoggedUser() == null)
+                    return false;
+                else {
+                    perdoTransaction(id);
+                    return true;
+                }
             case "product":
-                perdoProduct(id);
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    perdoProduct(id);
+                    return false;
+                }
         }
+        return false;
     }
 
     @Override
-    public void setAssortment(String type, int root, int product, Double quantity) {
+    public boolean setManyToMany(String type, String root, String product, String quantity) {
         switch (type) {
-            case "store":
-                setAssortmentStore(root, product, quantity);
-                break;
-            case "transaction":
-                setAssortmentTransaction(root, product, quantity);
-                break;
+            case "assortment":
+                if (getLoggedUser() != null && getLoggedUser()[4].equals("Заведующий")) {
+                    setAssortment(root, product, quantity);
+                    return true;
+                } else
+                    return false;
+            case "entry":
+                if (getLoggedUser() != null) {
+                    setEntry(root, product, quantity);
+                    return true;
+                } else
+                    return false;
         }
+        return false;
     }
 
-    private void setAssortmentStore(int store, int product, Double quantity) {
+    private void setAssortment(String store, String product, String quantity) {
         Session session = getSession();
-        StoreEntity storeEntity = session.load(StoreEntity.class, store);
-        ProductEntity productEntity = session.load(ProductEntity.class, product);
-        final Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :store and productByProductId = :product");
+        StoreEntity storeEntity = (StoreEntity) session.load(StoreEntity.class, Integer.parseInt(store));
+        ProductEntity productEntity = (ProductEntity) session.load(ProductEntity.class, Integer.parseInt(product));
+        Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :store and productByProductId = :product");
         query.setParameter("store", storeEntity);
         query.setParameter("product", productEntity);
         for (Object o : query.list()) {
             session.remove(o);
         }
-        if (quantity != 0) {
+        double dQuantity = Double.parseDouble(quantity);
+        if (dQuantity != 0) {
             StoreProductEntity newE = new StoreProductEntity();
             newE.setStoreByStoreId(storeEntity);
             newE.setProductByProductId(productEntity);
-            newE.setQuantity(BigDecimal.valueOf(quantity));
+            newE.setQuantity(BigDecimal.valueOf(dQuantity));
             session.beginTransaction();
             session.persist(newE);
             session.getTransaction().commit();
         }
     }
 
-    private void setAssortmentTransaction(int transaction, int product, Double quantity) {
+    private void setEntry(String transaction, String product, String quantity) {
         Session session = getSession();
         TransactionEntity transactionEntity = session.load(TransactionEntity.class, transaction);
         ProductEntity productEntity = session.load(ProductEntity.class, product);
@@ -203,11 +294,12 @@ public class AccountingService implements IService {
         for (Object o : query.list()) {
             session.remove(o);
         }
-        if (quantity != 0) {
+        double dQuantity = Double.parseDouble(quantity);
+        if (dQuantity != 0) {
             ProductTransactionEntity newE = new ProductTransactionEntity();
             newE.setTransactionByTransactionId(transactionEntity);
             newE.setProductByProductId(productEntity);
-            newE.setQuantity(BigDecimal.valueOf(quantity));
+            newE.setQuantity(BigDecimal.valueOf(dQuantity));
             session.beginTransaction();
             session.persist(newE);
             session.getTransaction().commit();
@@ -222,8 +314,9 @@ public class AccountingService implements IService {
         user.setPatronymic(strings[3]);
         user.setRole(strings[4]);
         user.setLogin(strings[5]);
-        user.setSalt(strings[6]);
-        user.setPassword(strings[7]);
+        String salt = getHash((new Date()).toString());
+        user.setSalt(salt);
+        user.setPassword(getHash(strings[6] + salt));
         Session session = getSession();
         session.beginTransaction();
         session.save(user);
@@ -232,12 +325,22 @@ public class AccountingService implements IService {
 
     private void creoStore(String[] strings) {
         StoreEntity store = new StoreEntity();
-        store.setStoreId(Integer.parseInt(strings[0]));
-        store.setRegion(strings[1]);
+        if (strings[0] != null) {
+            store.setStoreId(Integer.parseInt(strings[0]));
+        }
+        if (strings[1] != null) {
+            store.setRegion(strings[1]);
+        } else {
+            store.setRegion("");
+        }
         store.setCity(strings[2]);
         store.setStreet(strings[3]);
         store.setNumber(strings[4]);
-        store.setBuilding(strings[5]);
+        if (strings[5] != null) {
+            store.setBuilding(strings[5]);
+        } else {
+            store.setBuilding("");
+        }
         Session session = getSession();
         session.beginTransaction();
         session.save(store);
@@ -268,6 +371,31 @@ public class AccountingService implements IService {
         session.getTransaction().commit();
     }
 
+    private String[] intellegoProduct(Session session, String id) {
+        String[] arr = null;
+        Query query = session.createQuery("from ProductEntity where productId = :id");
+        query.setParameter("id", Integer.parseInt(id));
+        ProductEntity product;
+        for (Object o : query.list()) {
+            product = (ProductEntity) o;
+            arr = new String[]{String.valueOf(product.getProductId()), product.getName(), String.valueOf(product.getSellingPrice()), product.getDescription()};
+        }
+        return arr;
+    }
+
+    private String[] intellegoUser(Session session, String id) {
+        String[] arr = null;
+        Query query = session.createQuery("from UserEntity where userId = :id");
+        query.setParameter("id", Integer.parseInt(id));
+        UserEntity user;
+        for (Object o : query.list()) {
+            user = (UserEntity) o;
+            arr = new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin(), user.getSalt(), user.getPassword()};
+        }
+        return arr;
+    }
+
+
     private ArrayList<String[]> intellegoUsers(Session session) {
         ArrayList<String[]> arr = new ArrayList<>();
         final Query query = session.createQuery("from UserEntity");
@@ -283,7 +411,7 @@ public class AccountingService implements IService {
         final Query query = session.createQuery("from StoreEntity");
         for (Object o : query.list()) {
             StoreEntity store = (StoreEntity) o;
-            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding()});
+            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion().equals("") ? null : store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding().equals("") ? null : store.getBuilding()});
         }
         return arr;
     }
@@ -298,7 +426,7 @@ public class AccountingService implements IService {
         return arr;
     }
 
-    private ArrayList<String[]> intellegoTransaction(Session session) {
+    private ArrayList<String[]> intellegoTransactions(Session session) {
         ArrayList<String[]> arr = new ArrayList<>();
         final Query query = session.createQuery("from TransactionEntity");
         for (Object o : query.list()) {
@@ -336,10 +464,10 @@ public class AccountingService implements IService {
         return arr;
     }
 
-    private ArrayList<String[]> intellegoAssortment(Session session, int id) {
+    private ArrayList<String[]> intellegoAssortment(Session session, String id) {
         ArrayList<String[]> arr = new ArrayList<>();
         final Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :id");
-        query.setParameter("id", session.load(StoreEntity.class, id));
+        query.setParameter("id", session.load(StoreEntity.class, Integer.parseInt(id)));
         for (Object o : query.list()) {
             StoreProductEntity entry = (StoreProductEntity) o;
             arr.add(new String[]{
@@ -350,10 +478,10 @@ public class AccountingService implements IService {
         return arr;
     }
 
-    private ArrayList<String[]> intellegoEntry(Session session, int id) {
+    private ArrayList<String[]> intellegoEntry(Session session, String id) {
         ArrayList<String[]> arr = new ArrayList<>();
         final Query query = session.createQuery("from ProductTransactionEntity where transactionByTransactionId = :id");
-        query.setParameter("id", session.load(TransactionEntity.class, id));
+        query.setParameter("id", session.load(TransactionEntity.class, Integer.parseInt(id)));
         for (Object o : query.list()) {
             ProductTransactionEntity entry = (ProductTransactionEntity) o;
             arr.add(new String[]{
@@ -364,28 +492,21 @@ public class AccountingService implements IService {
         return arr;
     }
 
-    private String[] intellegoStore(Session session, int id) {
+    private String[] intellegoStore(Session session, String id) {
         String[] arr = null;
         final Query query = session.createQuery("from StoreEntity where storeId = :id");
-        query.setParameter("id", id);
+        query.setParameter("id", Integer.parseInt(id));
         for (Object o : query.list()) {
             StoreEntity store = (StoreEntity) o;
-            arr = new String[]{
-                    String.valueOf(store.getStoreId()),
-                    store.getRegion(),
-                    store.getCity(),
-                    store.getStreet(),
-                    store.getNumber(),
-                    store.getBuilding()
-            };
+            arr = new String[]{String.valueOf(store.getStoreId()), store.getRegion().equals("") ? null : store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding().equals("") ? null : store.getBuilding()};
         }
         return arr;
     }
 
-    private String[] intellegoTransaction(Session session, int id) {
+    private String[] intellegoTransactions(Session session, String id) {
         String[] arr = null;
         final Query query = session.createQuery("from TransactionEntity where transactionId = :id");
-        query.setParameter("id", id);
+        query.setParameter("id", Integer.parseInt(id));
         for (Object o : query.list()) {
             TransactionEntity transaction = (TransactionEntity) o;
             StoreEntity store = transaction.getStoreByStoreId();
@@ -424,21 +545,25 @@ public class AccountingService implements IService {
 
     private void mutoUser(String[] strings) {
         Session session = getSession();
-        UserEntity user = session.load(UserEntity.class, Integer.parseInt(strings[0]));
-        if (strings[1] != null)
+        UserEntity user = (UserEntity) session.load(UserEntity.class, Integer.parseInt(strings[0]));
+        if (strings[1] != null) {
             user.setSurname(strings[1]);
-        if (strings[2] != null)
+        }
+        if (strings[2] != null) {
             user.setForename(strings[2]);
-        if (strings[3] != null)
+        }
+        if (strings[3] != null) {
             user.setPatronymic(strings[3]);
-        if (strings[4] != null)
+        }
+        if (strings[4] != null) {
             user.setRole(strings[4]);
-        if (strings[5] != null)
+        }
+        if (strings[5] != null) {
             user.setLogin(strings[5]);
-        if (strings[6] != null)
-            user.setSalt(strings[6]);
-        if (strings[7] != null)
-            user.setPassword(strings[7]);
+        }
+        if (strings[6] != null) {
+            user.setPassword(this.getHash(strings[6] + user.getSalt()));
+        }
         session.beginTransaction();
         session.save(user);
         session.getTransaction().commit();
