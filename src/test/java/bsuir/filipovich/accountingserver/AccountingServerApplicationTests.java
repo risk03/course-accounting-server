@@ -11,8 +11,7 @@ class AccountingServerApplicationTests {
     @Autowired
     private IService service;
 
-    private final String DEFAULT_ADMIN_LOGIN = "admin";
-    private final String DEFAULT_ADMIN_PASSWORD = "password";
+    private final String[] DEFAULT_ADMIN = new String[]{"1", "Фамилия", "Имя", "Отчество", "Заведующий", "admin", "password"};
     private final String ADMIN_LOGIN = "risk03";
     private final String ADMIN_PASSWORD = "wasd";
     private final String ADMIN_SURNAME = "Филиппович";
@@ -29,17 +28,14 @@ class AccountingServerApplicationTests {
         }
     };
     private int NUM_OF_TRANSACTIONS = 9;
+    DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Ignore
     @Order(1)
     void loginTest() {
-        System.out.println(service.getLoggedUser() != null);
-        if (service.getLoggedUser() != null)
-            Assert.fail();
-        service.login(ADMIN_LOGIN, ADMIN_PASSWORD);
-        if (!service.getLoggedUser()[5].equals(ADMIN_LOGIN)) {
-            Assert.fail();
-        }
+        Assert.assertNull(service.getLoggedUser());
+        service.login(DEFAULT_ADMIN[5], DEFAULT_ADMIN[6]);
+        Assert.assertEquals(service.getLoggedUser()[5], DEFAULT_ADMIN[5]);
         service.logout();
     }
 
@@ -47,7 +43,7 @@ class AccountingServerApplicationTests {
     @Order(2)
     void changeAdmin() {
         System.out.println(service.getLoggedUser() != null);
-        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        Assert.assertTrue(service.login(DEFAULT_ADMIN[5], DEFAULT_ADMIN[6]));
         String adminId = service.getLoggedUser()[0];
         Assert.assertTrue(service.update("user", new String[]{adminId, ADMIN_SURNAME, ADMIN_FORENAME, ADMIN_PATRONYMIC, null, ADMIN_LOGIN, ADMIN_PASSWORD}));
         String[] user = service.readOne("user", adminId);
@@ -61,19 +57,17 @@ class AccountingServerApplicationTests {
     @Ignore
     @Order(3)
     void createStore() {
-        if (!this.service.login(ADMIN_LOGIN, ADMIN_PASSWORD)) {
-            Assert.fail();
-        }
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
         for (String[] store : STORE) {
-            this.service.create("store", store);
+            service.create("store", store);
         }
         ArrayList<String[]> stores = new ArrayList<>();
-        for (int i = 0; i < this.STORE.length; ++i) {
-            stores.add(this.service.readOne("store", String.valueOf(i + 1)));
+        for (int i = 0; i < STORE.length; ++i) {
+            stores.add(service.readOne("store", String.valueOf(i + 1)));
         }
-        for (int i = 0; i < this.STORE.length; ++i) {
-            for (int j = 0; j < this.STORE[0].length; ++j) {
-                Assert.assertEquals(this.STORE[i][j], ((String[]) stores.get(i))[j]);
+        for (int i = 0; i < STORE.length; ++i) {
+            for (int j = 0; j < STORE[0].length; ++j) {
+                Assert.assertEquals(STORE[i][j], ((String[]) stores.get(i))[j]);
             }
         }
         service.logout();
@@ -82,8 +76,7 @@ class AccountingServerApplicationTests {
     @Ignore
     @Order(4)
     void createProduct() {
-        if (!service.login(ADMIN_LOGIN, ADMIN_PASSWORD))
-            Assert.fail();
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
         for (String[] product : PRODUCT) {
             service.create("product", product);
         }
@@ -102,9 +95,7 @@ class AccountingServerApplicationTests {
     @Ignore
     @Order(5)
     void fillStore() {
-        if (!service.login(ADMIN_LOGIN, ADMIN_PASSWORD)) {
-            Assert.fail();
-        }
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
         for (int store = 0; store < STORE.length; ++store) {
             for (int product = 0; product < PRODUCT.length; ++product) {
                 service.setManyToMany("assortment", String.valueOf(store + 1), String.valueOf(product + 1), String.valueOf(2 * store + product));
@@ -113,100 +104,189 @@ class AccountingServerApplicationTests {
         service.logout();
     }
 
-    @Test
+    @Ignore
     @Order(6)
     void createCashier() {
-        if (!this.service.login(ADMIN_LOGIN, ADMIN_PASSWORD)) {
-            Assert.fail();
-        }
-        this.service.create("user", CASHIER);
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        service.create("user", CASHIER);
         String[] user = service.readOne("user", CASHIER[0]);
         for (int i = 0; i < 6; ++i) {
             Assert.assertEquals(CASHIER[i], user[i]);
         }
-
+        service.logout();
     }
 
     @Ignore
     @Order(7)
     void logInLogOut() {
-        this.service.getLoggedUser();
-        Assert.fail();
-
-        Assert.assertTrue(this.service.login("risk03", "wasd"));
-        Assert.assertTrue(this.service.login(this.CASHIER[5], this.CASHIER[6]));
-        Assert.fail();
-
-        this.service.logout();
-
-        Assert.assertTrue(this.service.login("Oules", "wasd"));
-
+        Assert.assertNull(service.getLoggedUser());
+        Assert.assertTrue(service.login("risk03", "wasd"));
+        Assert.assertFalse(service.login(CASHIER[5], CASHIER[6]));
+        service.logout();
+        Assert.assertTrue(service.login("Oules", "wasd"));
+        service.logout();
     }
 
     @Ignore
     @Order(8)
     void someTransactions() {
-        if (!this.service.login(this.CASHIER[5], this.CASHIER[6])) {
-            Assert.fail();
-        }
-
+        Assert.assertTrue(service.login(CASHIER[5], CASHIER[6]));
         int j = 1;
-
-        int i;
-        for (i = 0; i < NUM_OF_TRANSACTIONS; ++i) {
-            if (j > this.STORE.length) {
+        for (int i = 0; i < NUM_OF_TRANSACTIONS; i++) {
+            if (j > STORE.length) {
                 j = 1;
             }
-
             Date date = new Date();
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            this.service.create("transaction", new String[]{String.valueOf(i + 1), String.valueOf(j), this.service.getLoggedUser()[0], dateFormat.format(date)});
-            ++j;
+            Assert.assertTrue(service.create("transaction", new String[]{String.valueOf(i + 1), String.valueOf(j), service.getLoggedUser()[0], dateFormat.format(date)}));
+            j++;
         }
-
-        for (i = 0; i < this.STORE.length; ++i) {
-            for (int k = 0; k < this.PRODUCT.length; ++k) {
-                this.service.setManyToMany("entry", String.valueOf(i + 1), String.valueOf(j + 1), String.valueOf(i * j / 2));
+        for (int i = 0; i < STORE.length; i++) {
+            for (int k = 0; k < PRODUCT.length; k++) {
+                Assert.assertTrue(service.setManyToMany("entry", String.valueOf(i + 1), String.valueOf(k + 1), String.valueOf(i + k)));
             }
         }
-
+        service.logout();
     }
 
     @Ignore
     @Order(9)
     void showAll() {
-        if (!this.service.login("risk03", "wasd")) {
-            Assert.fail();
-        }
-
+        Assert.assertTrue(service.login("risk03", "wasd"));
         String[] tables = new String[]{"user", "store", "product", "transaction", "assortment", "entry"};
-        String[] var2 = tables;
-        int var3 = tables.length;
-
-        for (int var4 = 0; var4 < var3; ++var4) {
-            String what = var2[var4];
+        for (String what : tables) {
             System.out.println(what + ':');
-            Iterator var6 = this.service.readAll(what).iterator();
-
-            while (var6.hasNext()) {
-                String[] tr = (String[]) var6.next();
-                String[] var8 = tr;
-                int var9 = tr.length;
-
-                for (int var10 = 0; var10 < var9; ++var10) {
-                    String td = var8[var10];
+            ArrayList<String[]> rs = service.readAll(what);
+            Assert.assertNotNull(rs);
+            for (String[] tr : rs) {
+                for (String td : tr) {
                     System.out.print(td + ' ');
                 }
-
                 System.out.println();
             }
         }
+        service.logout();
+    }
 
+    @Ignore
+    @Order(10)
+    void showWhere() {
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        for (String[] strings : PRODUCT) {
+            for (String id : service.showWhere(strings[0])) {
+                String[] store = service.readOne("store", id);
+                System.out.println(store[2] + ' ' + store[3] + ' ' + store[4]);
+            }
+        }
+        service.logout();
+    }
+
+    @Ignore
+    @Order(11)
+    void getSalesByStoreReport() {
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        Date today = new Date();
+        Calendar c = Calendar.getInstance();
+        c.setTime(today);
+        c.add(Calendar.DAY_OF_MONTH, -1);
+        Date yesterday = c.getTime();
+        ArrayList<String[]> rs = service.getSalesByStoreReport(dateFormat.format(yesterday), dateFormat.format(today));
+        Assert.assertNotNull(rs);
+        for (String[] row : rs) {
+            for (String td : row) {
+                System.out.print(td);
+                System.out.print(' ');
+            }
+            System.out.println();
+        }
+        service.logout();
+    }
+
+    @Ignore
+    @Order(12)
+    void getSalesByProductReport() {
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        Date today = new Date();
+        Calendar c = Calendar.getInstance();
+        c.setTime(today);
+        c.add(Calendar.DAY_OF_MONTH, -1);
+        Date yesterday = c.getTime();
+        ArrayList<String[]> rs = service.getSalesByProductReport(dateFormat.format(yesterday), dateFormat.format(today));
+        Assert.assertNotNull(rs);
+        for (String[] row : rs) {
+            for (String td : row) {
+                System.out.print(td);
+                System.out.print(' ');
+            }
+            System.out.println();
+        }
+        service.logout();
+    }
+
+    @Ignore
+    @Order(13)
+    void getSalesByCashierReport() {
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        Date today = new Date();
+        Calendar c = Calendar.getInstance();
+        c.setTime(today);
+        c.add(Calendar.DAY_OF_MONTH, -1);
+        Date yesterday = c.getTime();
+        ArrayList<String[]> rs = service.getSalesByCashierReport(dateFormat.format(yesterday), dateFormat.format(today));
+        Assert.assertNotNull(rs);
+        for (String[] row : rs) {
+            for (String td : row) {
+                System.out.print(td);
+                System.out.print(' ');
+            }
+            System.out.println();
+        }
+        service.logout();
+    }
+
+    @Ignore
+    @Order(14)
+    void safelyDelete() {
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        Assert.assertFalse(service.remove("user", service.getLoggedUser()[0]));
+        service.logout();
+    }
+
+    @Test
+    @Order(15)
+    void rest() {
+        String[] curriencesCodes = new String[]{"USD", "EUR"};
+        boolean br = false;
+        for (String[] product : PRODUCT) {
+            for (String currency : curriencesCodes) {
+                String result = service.toCur(product[2], currency);
+                if (result == null) {
+                    System.out.println("Сервис недоступен");
+                    br = true;
+                    break;
+                } else
+                    System.out.println(result);
+            }
+            if (br)
+                break;
+        }
     }
 
     @Ignore
     @Order(20)
     void clearAll() {
+        Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
+        String[] sequence = {"entry", "transaction", "assortment", "product", "store"};
+        for (String type : sequence) {
+            ArrayList<String[]> arr = service.readAll(type);
+            for (String[] row : arr) {
+                service.remove(type, row[0]);
+            }
+        }
+        ArrayList<String[]> arr = service.readAll("user");
+        for (int i = 1; i < arr.size(); i++) {
+            service.remove("user", arr.get(i)[0]);
+        }
+        service.update("user", DEFAULT_ADMIN);
     }
 
 }

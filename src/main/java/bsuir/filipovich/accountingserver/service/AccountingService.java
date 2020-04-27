@@ -7,7 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.xml.bind.DatatypeConverter;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
@@ -87,26 +91,26 @@ public class AccountingService implements IService {
     public boolean create(String type, String[] strings) {
         switch (type) {
             case "user":
-                if (getLoggedUser()[4].equals("Заведующий"))
+                if (getLoggedUser()[4].equals("Заведующий")) {
                     creoUser(strings);
-                else
+                    return true;
+                } else
                     return false;
-                break;
             case "store":
-                if (getLoggedUser()[4].equals("Заведующий"))
+                if (getLoggedUser()[4].equals("Заведующий")) {
                     creoStore(strings);
-                else
+                    return true;
+                } else
                     return false;
-                break;
             case "transaction":
                 creoTransaction(strings);
-                break;
+                return true;
             case "product":
-                if (getLoggedUser()[4].equals("Заведующий"))
+                if (getLoggedUser()[4].equals("Заведующий")) {
                     creoProduct(strings);
-                else
+                    return true;
+                } else
                     return false;
-                break;
         }
         return false;
     }
@@ -129,6 +133,12 @@ public class AccountingService implements IService {
                     break;
                 case "transaction":
                     arr = intellegoTransactions(session);
+                    break;
+                case "assortment":
+                    arr = intellegoAssortments(session);
+                    break;
+                case "entry":
+                    arr = intellegoEntries(session);
                     break;
             }
         }
@@ -166,7 +176,7 @@ public class AccountingService implements IService {
                     arr = intellegoStore(session, id);
                     break;
                 case "transaction":
-                    arr = intellegoTransactions(session, id);
+                    arr = intellegoTransaction(session, id);
                     break;
             }
         }
@@ -210,9 +220,11 @@ public class AccountingService implements IService {
 
     @Override
     public boolean remove(String type, String id) {
+        if (getLoggedUser() == null)
+            return false;
         switch (type) {
             case "user":
-                if (!getLoggedUser()[4].equals("Заведующий"))
+                if (!getLoggedUser()[4].equals("Заведующий") || id.equals(getLoggedUser()[0]))
                     return false;
                 else {
                     perdoUser(id);
@@ -239,6 +251,20 @@ public class AccountingService implements IService {
                     perdoProduct(id);
                     return false;
                 }
+            case "entry":
+                if (getLoggedUser() == null)
+                    return false;
+                else {
+                    perdoEntry(id);
+                    return false;
+                }
+            case "assortment":
+                if (!getLoggedUser()[4].equals("Заведующий"))
+                    return false;
+                else {
+                    perdoAssortment(id);
+                    return false;
+                }
         }
         return false;
     }
@@ -254,12 +280,162 @@ public class AccountingService implements IService {
                     return false;
             case "entry":
                 if (getLoggedUser() != null) {
-                    setEntry(root, product, quantity);
-                    return true;
+                    return setEntry(root, product, quantity);
                 } else
                     return false;
         }
         return false;
+    }
+
+    @Override
+    public String[] showWhere(String id) {
+        if (getLoggedUser() == null)
+            return null;
+        Session session = getSession();
+        Query query = session.createQuery("from StoreProductEntity where productByProductId = :product");
+        query.setParameter("product", session.load(ProductEntity.class, Integer.parseInt(id)));
+        List l = query.list();
+        String[] arr = new String[l.size()];
+        for (int i = 0; i < l.size(); i++) {
+            arr[i] = String.valueOf(((StoreProductEntity) l.get(i)).getStoreByStoreId().getStoreId());
+        }
+        return arr;
+    }
+
+    @Override
+    public ArrayList<String[]> getSalesByStoreReport(String from, String to) {
+        Session session = getSession();
+        if (getLoggedUser() == null || !getLoggedUser()[4].equals("Заведующий")) {
+            return null;
+        }
+        ArrayList<String[]> arr = new ArrayList<>();
+        double sum = 0;
+        Query storeQuery = session.createQuery("from StoreEntity ");
+        for (Object s : storeQuery.list()) {
+            StoreEntity store = (StoreEntity) s;
+            Query transactionQuery = session.createQuery("from TransactionEntity where date between :fr and :to and storeByStoreId = :store");
+            transactionQuery.setParameter("store", session.load(StoreEntity.class, store.getStoreId()));
+            transactionQuery.setParameter("fr", Timestamp.valueOf(from));
+            transactionQuery.setParameter("to", Timestamp.valueOf(to));
+            double storeSum = 0;
+            for (Object t : transactionQuery.list()) {
+                TransactionEntity transaction = (TransactionEntity) t;
+                Query entryQuery = session.createQuery("from ProductTransactionEntity where transactionByTransactionId = :transaction");
+                entryQuery.setParameter("transaction", transaction);
+                for (Object e : entryQuery.list()) {
+                    ProductTransactionEntity entry = (ProductTransactionEntity) e;
+                    double entrySum = entry.getQuantity().multiply(entry.getProductByProductId().getSellingPrice()).doubleValue();
+                    storeSum += entrySum;
+                    sum += entrySum;
+                }
+            }
+            arr.add(new String[]{String.valueOf(store.getStoreId()), String.valueOf(storeSum)});
+        }
+        for (int i = 0; i < arr.size(); i++) {
+            arr.set(i, new String[]{arr.get(i)[0], arr.get(i)[1], String.valueOf(Double.parseDouble(arr.get(i)[1]) / sum)});
+        }
+        return arr;
+    }
+
+    @Override
+    public ArrayList<String[]> getSalesByProductReport(String from, String to) {
+        Session session = getSession();
+        if (getLoggedUser() == null || !getLoggedUser()[4].equals("Заведующий")) {
+            return null;
+        }
+        ArrayList<String[]> arr = new ArrayList<>();
+        double sum = 0;
+        Query transactionQuery = session.createQuery("from TransactionEntity where date between :fr and :to");
+        transactionQuery.setParameter("fr", Timestamp.valueOf(from));
+        transactionQuery.setParameter("to", Timestamp.valueOf(to));
+        List transactions = transactionQuery.list();
+        Query productQuery = session.createQuery("from ProductEntity");
+        for (Object p : productQuery.list()) {
+            ProductEntity product = (ProductEntity) p;
+            Query entryQuery = session.createQuery("from ProductTransactionEntity where productByProductId = :product and transactionByTransactionId in :transactions");
+            entryQuery.setParameter("product", product);
+            entryQuery.setParameterList("transactions", transactions);
+            double productSum = 0;
+            for (Object e : entryQuery.list()) {
+                ProductTransactionEntity entry = (ProductTransactionEntity) e;
+                productSum += entry.getQuantity().multiply(entry.getProductByProductId().getSellingPrice()).doubleValue();
+            }
+            arr.add(new String[]{String.valueOf(product.getProductId()), String.valueOf(entryQuery.list().size()), String.valueOf(productSum)});
+            sum += productSum;
+        }
+        for (int i = 0; i < arr.size(); i++) {
+            arr.set(i, new String[]{arr.get(i)[0], arr.get(i)[1], arr.get(i)[2], String.valueOf(Double.parseDouble(arr.get(i)[2]) / sum)});
+        }
+        return arr;
+    }
+
+    @Override
+    public ArrayList<String[]> getSalesByCashierReport(String from, String to) {
+        Session session = getSession();
+        if (getLoggedUser() == null || !getLoggedUser()[4].equals("Заведующий")) {
+            return null;
+        }
+        ArrayList<String[]> arr = new ArrayList<>();
+        Query cashierQuery = session.createQuery("from UserEntity");
+        for (Object c : cashierQuery.list()) {
+            UserEntity cashier = (UserEntity) c;
+            Query transactionQuery = session.createQuery("from TransactionEntity where date between :fr and :to and userByUserId = :user");
+            transactionQuery.setParameter("fr", Timestamp.valueOf(from));
+            transactionQuery.setParameter("to", Timestamp.valueOf(to));
+            transactionQuery.setParameter("user", cashier);
+            List transactions = transactionQuery.list();
+            double sum = 0;
+            for (Object t : transactions) {
+                TransactionEntity transaction = (TransactionEntity) t;
+                Query entryQuery = session.createQuery("from ProductTransactionEntity where transactionByTransactionId = :transaction");
+                entryQuery.setParameter("transaction", transaction);
+                for (Object e : entryQuery.list()) {
+                    ProductTransactionEntity entry = (ProductTransactionEntity) e;
+                    sum += entry.getQuantity().multiply(entry.getProductByProductId().getSellingPrice()).doubleValue();
+                }
+            }
+            arr.add(new String[]{String.valueOf(((UserEntity) c).getUserId()), String.valueOf(transactions.size()), String.valueOf(sum)});
+        }
+        return arr;
+    }
+
+    @Override
+    public String toCur(String value, String currency) {
+        String s = null;
+        switch (currency) {
+            case "USD":
+                s = sendGETRequest("145");
+                break;
+            case "EUR":
+                s = sendGETRequest("292");
+                break;
+        }
+        if (s == null)
+            return s;
+        String rate = s.substring(s.lastIndexOf(":") + 1, s.lastIndexOf("}"));
+        return String.valueOf(Double.parseDouble(value) / Double.parseDouble(rate));
+    }
+
+    private String sendGETRequest(String currCode) {
+        try {
+            URL obj = new URL("https://www.nbrb.by/api/exrates/rates/" + currCode);
+            HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+            con.setRequestMethod("GET");
+            con.setRequestProperty("User-Agent", "Mozilla/5.0");
+            int responseCode = con.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+                return response.toString();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     private void setAssortment(String store, String product, String quantity) {
@@ -284,26 +460,46 @@ public class AccountingService implements IService {
         }
     }
 
-    private void setEntry(String transaction, String product, String quantity) {
+    private boolean setEntry(String transaction, String product, String quantity) {
         Session session = getSession();
-        TransactionEntity transactionEntity = session.load(TransactionEntity.class, transaction);
-        ProductEntity productEntity = session.load(ProductEntity.class, product);
-        final Query query = session.createQuery("from ProductTransactionEntity where transactionByTransactionId = :transaction and productByProductId = :product");
-        query.setParameter("transaction", transactionEntity);
-        query.setParameter("product", productEntity);
-        for (Object o : query.list()) {
-            session.remove(o);
+        TransactionEntity transactionEntity = session.load(TransactionEntity.class, Integer.parseInt(transaction));
+        ProductEntity productEntity = session.load(ProductEntity.class, Integer.parseInt(product));
+        Query existingQuery = session.createQuery("from ProductTransactionEntity where productByProductId = :product and transactionByTransactionId = :transaction");
+        existingQuery.setParameter("product", productEntity);
+        existingQuery.setParameter("transaction", transactionEntity);
+        BigDecimal productsInTransaction = new BigDecimal(0);
+        for (Object o : existingQuery.list()) {
+            ProductTransactionEntity entry = (ProductTransactionEntity) o;
+            productsInTransaction = productsInTransaction.add(entry.getQuantity());
         }
-        double dQuantity = Double.parseDouble(quantity);
-        if (dQuantity != 0) {
+        Query storeQuery = session.createQuery("from StoreProductEntity where storeByStoreId = :store and productByProductId = :product");
+        storeQuery.setParameter("store", transactionEntity.getStoreByStoreId());
+        storeQuery.setParameter("product", productEntity);
+        BigDecimal productsInStore = new BigDecimal(0);
+        for (Object o : storeQuery.list()) {
+            StoreProductEntity entry = (StoreProductEntity) o;
+            productsInStore = productsInStore.add(entry.getQuantity());
+        }
+        if (productsInTransaction.add(productsInStore).compareTo(BigDecimal.valueOf(Double.parseDouble(quantity))) < 0) {
+            return false;
+        } else {
+            session.beginTransaction();
+            for (Object o : existingQuery.list())
+                session.remove(o);
+        }
+        session.getTransaction().commit();
+        double lQuantity = Double.parseDouble(quantity);
+        if (lQuantity != 0) {
             ProductTransactionEntity newE = new ProductTransactionEntity();
             newE.setTransactionByTransactionId(transactionEntity);
             newE.setProductByProductId(productEntity);
-            newE.setQuantity(BigDecimal.valueOf(dQuantity));
+            newE.setQuantity(BigDecimal.valueOf(lQuantity));
             session.beginTransaction();
             session.persist(newE);
             session.getTransaction().commit();
         }
+        this.setAssortment(String.valueOf(transactionEntity.getStoreByStoreId().getStoreId()), String.valueOf(productEntity.getProductId()), String.valueOf(productsInTransaction.add(productsInStore).subtract(BigDecimal.valueOf(Double.parseDouble(quantity)))));
+        return true;
     }
 
     private void creoUser(String[] strings) {
@@ -383,6 +579,16 @@ public class AccountingService implements IService {
         return arr;
     }
 
+    private ArrayList<String[]> intellegoProducts(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from ProductEntity");
+        for (Object o : query.list()) {
+            ProductEntity product = (ProductEntity) o;
+            arr.add(new String[]{String.valueOf(product.getProductId()), product.getName(), product.getSellingPrice().toString(), product.getDescription()});
+        }
+        return arr;
+    }
+
     private String[] intellegoUser(Session session, String id) {
         String[] arr = null;
         Query query = session.createQuery("from UserEntity where userId = :id");
@@ -395,99 +601,12 @@ public class AccountingService implements IService {
         return arr;
     }
 
-
     private ArrayList<String[]> intellegoUsers(Session session) {
         ArrayList<String[]> arr = new ArrayList<>();
         final Query query = session.createQuery("from UserEntity");
         for (Object o : query.list()) {
             UserEntity user = (UserEntity) o;
             arr.add(new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()});
-        }
-        return arr;
-    }
-
-    private ArrayList<String[]> intellegoStores(Session session) {
-        ArrayList<String[]> arr = new ArrayList<>();
-        final Query query = session.createQuery("from StoreEntity");
-        for (Object o : query.list()) {
-            StoreEntity store = (StoreEntity) o;
-            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion().equals("") ? null : store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding().equals("") ? null : store.getBuilding()});
-        }
-        return arr;
-    }
-
-    private ArrayList<String[]> intellegoProducts(Session session) {
-        ArrayList<String[]> arr = new ArrayList<>();
-        final Query query = session.createQuery("from ProductEntity");
-        for (Object o : query.list()) {
-            ProductEntity product = (ProductEntity) o;
-            arr.add(new String[]{String.valueOf(product.getProductId()), product.getName(), product.getSellingPrice().toString(), product.getDescription()});
-        }
-        return arr;
-    }
-
-    private ArrayList<String[]> intellegoTransactions(Session session) {
-        ArrayList<String[]> arr = new ArrayList<>();
-        final Query query = session.createQuery("from TransactionEntity");
-        for (Object o : query.list()) {
-            TransactionEntity product = (TransactionEntity) o;
-            StringBuilder strbldr = new StringBuilder();
-            UserEntity user = product.getUserByUserId();
-            strbldr.append(user.getUserId());
-            strbldr.append(" - ");
-            strbldr.append(user.getSurname());
-            strbldr.append(' ');
-            strbldr.append(user.getForename().charAt(0));
-            strbldr.append(". ");
-            strbldr.append(user.getPatronymic().charAt(0));
-            strbldr.append(". ");
-            String nameStr = strbldr.toString();
-            strbldr.setLength(0);
-            StoreEntity store = product.getStoreByStoreId();
-            strbldr.append(store.getStoreId());
-            strbldr.append(" - ");
-            strbldr.append(store.getCity());
-            strbldr.append(' ');
-            strbldr.append(store.getStreet());
-            strbldr.append(' ');
-            strbldr.append(store.getNumber());
-            if (store.getBuilding() != null) {
-                strbldr.append('/');
-                strbldr.append(store.getBuilding());
-            }
-            String strdate = String.valueOf(product.getDate());
-            arr.add(new String[]{String.valueOf(product.getTransactionId()),
-                    strbldr.toString(),
-                    nameStr,
-                    strdate.substring(0, strdate.length() - 2)});
-        }
-        return arr;
-    }
-
-    private ArrayList<String[]> intellegoAssortment(Session session, String id) {
-        ArrayList<String[]> arr = new ArrayList<>();
-        final Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :id");
-        query.setParameter("id", session.load(StoreEntity.class, Integer.parseInt(id)));
-        for (Object o : query.list()) {
-            StoreProductEntity entry = (StoreProductEntity) o;
-            arr.add(new String[]{
-                    entry.getProductByProductId().getProductId() + " - " + entry.getProductByProductId().getName(),
-                    String.valueOf(entry.getQuantity())
-            });
-        }
-        return arr;
-    }
-
-    private ArrayList<String[]> intellegoEntry(Session session, String id) {
-        ArrayList<String[]> arr = new ArrayList<>();
-        final Query query = session.createQuery("from ProductTransactionEntity where transactionByTransactionId = :id");
-        query.setParameter("id", session.load(TransactionEntity.class, Integer.parseInt(id)));
-        for (Object o : query.list()) {
-            ProductTransactionEntity entry = (ProductTransactionEntity) o;
-            arr.add(new String[]{
-                    entry.getProductByProductId().getProductId() + " - " + entry.getProductByProductId().getName(),
-                    String.valueOf(entry.getQuantity())
-            });
         }
         return arr;
     }
@@ -503,42 +622,75 @@ public class AccountingService implements IService {
         return arr;
     }
 
-    private String[] intellegoTransactions(Session session, String id) {
+    private ArrayList<String[]> intellegoStores(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from StoreEntity");
+        for (Object o : query.list()) {
+            StoreEntity store = (StoreEntity) o;
+            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion().equals("") ? null : store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding().equals("") ? null : store.getBuilding()});
+        }
+        return arr;
+    }
+
+    private String[] intellegoTransaction(Session session, String id) {
         String[] arr = null;
         final Query query = session.createQuery("from TransactionEntity where transactionId = :id");
         query.setParameter("id", Integer.parseInt(id));
         for (Object o : query.list()) {
             TransactionEntity transaction = (TransactionEntity) o;
-            StoreEntity store = transaction.getStoreByStoreId();
-            StringBuilder strbldr = new StringBuilder();
-            strbldr.append("Магазин №");
-            strbldr.append(store.getNumber());
-            strbldr.append(" - ");
-            strbldr.append(store.getCity());
-            strbldr.append(' ');
-            strbldr.append(store.getNumber());
-            if (store.getBuilding() != null) {
-                strbldr.append('/');
-                strbldr.append(store.getBuilding());
-            }
-            String storestr = strbldr.toString();
-            UserEntity user = transaction.getUserByUserId();
-            strbldr.setLength(0);
-            strbldr.append(user.getUserId());
-            strbldr.append(" - ");
-            strbldr.append(user.getSurname());
-            strbldr.append(' ');
-            strbldr.append(user.getForename().charAt(0));
-            strbldr.append(". ");
-            strbldr.append(user.getPatronymic().charAt(0));
-            strbldr.append(". ");
-            String nameStr = strbldr.toString();
-            arr = new String[]{
-                    String.valueOf(transaction.getTransactionId()),
-                    storestr,
-                    nameStr,
-                    String.valueOf(transaction.getDate())
-            };
+            arr = new String[]{String.valueOf(transaction.getTransactionId()), String.valueOf(transaction.getStoreByStoreId().getStoreId()), String.valueOf(transaction.getUserByUserId().getUserId()), String.valueOf(transaction.getDate())};
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoTransactions(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from TransactionEntity");
+        for (Object o : query.list()) {
+            TransactionEntity transaction = (TransactionEntity) o;
+            arr.add(new String[]{String.valueOf(transaction.getTransactionId()), String.valueOf(transaction.getStoreByStoreId().getStoreId()), String.valueOf(transaction.getUserByUserId().getUserId()), String.valueOf(transaction.getDate())});
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoAssortment(Session session, String id) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :id");
+        query.setParameter("id", session.load(StoreEntity.class, Integer.parseInt(id)));
+        for (Object o : query.list()) {
+            StoreProductEntity entry = (StoreProductEntity) o;
+            arr.add(new String[]{String.valueOf(entry.getStoreProductId()), String.valueOf(entry.getStoreByStoreId()), String.valueOf(entry.getProductByProductId()), String.valueOf(entry.getQuantity())});
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoAssortments(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        Query query = session.createQuery("from StoreProductEntity");
+        for (Object o : query.list()) {
+            StoreProductEntity entry = (StoreProductEntity) o;
+            arr.add(new String[]{String.valueOf(entry.getStoreProductId()), String.valueOf(entry.getStoreByStoreId().getStoreId()), String.valueOf(entry.getProductByProductId().getProductId()), String.valueOf(entry.getQuantity())});
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoEntry(Session session, String id) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        final Query query = session.createQuery("from ProductTransactionEntity where transactionByTransactionId = :id");
+        query.setParameter("id", session.load(TransactionEntity.class, Integer.parseInt(id)));
+        for (Object o : query.list()) {
+            ProductTransactionEntity entry = (ProductTransactionEntity) o;
+            arr.add(new String[]{String.valueOf(entry.getProductTransactionId()), String.valueOf(entry.getTransactionByTransactionId().getTransactionId()), String.valueOf(entry.getProductByProductId().getProductId()), String.valueOf(entry.getQuantity())});
+        }
+        return arr;
+    }
+
+    private ArrayList<String[]> intellegoEntries(Session session) {
+        ArrayList<String[]> arr = new ArrayList<>();
+        Query query = session.createQuery("from ProductTransactionEntity");
+        for (Object o : query.list()) {
+            ProductTransactionEntity entry = (ProductTransactionEntity) o;
+            arr.add(new String[]{String.valueOf(entry.getProductTransactionId()), String.valueOf(entry.getTransactionByTransactionId().getTransactionId()), String.valueOf(entry.getProductByProductId().getProductId()), String.valueOf(entry.getQuantity())});
         }
         return arr;
     }
@@ -647,4 +799,19 @@ public class AccountingService implements IService {
         session.getTransaction().commit();
     }
 
+    private void perdoEntry(String id) {
+        Session session = getSession();
+        session.beginTransaction();
+        ProductTransactionEntity product = session.load(ProductTransactionEntity.class, Integer.parseInt(id));
+        session.delete(product);
+        session.getTransaction().commit();
+    }
+
+    private void perdoAssortment(String id) {
+        Session session = getSession();
+        session.beginTransaction();
+        StoreProductEntity product = session.load(StoreProductEntity.class, Integer.parseInt(id));
+        session.delete(product);
+        session.getTransaction().commit();
+    }
 }

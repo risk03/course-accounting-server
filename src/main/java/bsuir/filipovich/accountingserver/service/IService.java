@@ -23,5 +23,15 @@ public interface IService {
 
     void logout();
 
-    String useBean();
+    String[] getLoggedUser();
+
+    String[] showWhere(String id);
+
+    ArrayList<String[]> getSalesByStoreReport(String from, String to);
+
+    ArrayList<String[]> getSalesByProductReport(String from, String to);
+
+    ArrayList<String[]> getSalesByCashierReport(String from, String to);
+
+    String toCur(String product, String currency);
 }
