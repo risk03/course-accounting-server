@@ -3,8 +3,6 @@ package bsuir.filipovich.accountingserver.service;
 import java.util.ArrayList;
 
 public interface IService {
-    String getMessage();
-
     boolean create(String type, String[] strings);
 
     String[] readOne(String type, int id);

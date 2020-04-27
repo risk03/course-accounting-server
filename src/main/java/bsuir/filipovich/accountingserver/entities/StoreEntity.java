@@ -24,7 +24,7 @@ public class StoreEntity {
     }
 
     @Basic
-    @Column(name = "region", nullable = true, length = 45)
+    @Column(name = "region", length = 45)
     public String getRegion() {
         return region;
     }
@@ -64,7 +64,7 @@ public class StoreEntity {
     }
 
     @Basic
-    @Column(name = "building", nullable = true, length = 45)
+    @Column(name = "building", length = 45)
     public String getBuilding() {
         return building;
     }

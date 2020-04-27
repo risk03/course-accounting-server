@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+@SuppressWarnings("unused")
 @SpringBootTest
 @TestMethodOrder(OrderAnnotation.class)
 class AccountingServerApplicationTests {
@@ -14,9 +15,6 @@ class AccountingServerApplicationTests {
     private final String[] DEFAULT_ADMIN = new String[]{"1", "Фамилия", "Имя", "Отчество", "Заведующий", "admin", "password"};
     private final String ADMIN_LOGIN = "risk03";
     private final String ADMIN_PASSWORD = "wasd";
-    private final String ADMIN_SURNAME = "Филиппович";
-    private final String ADMIN_FORENAME = "Виктор";
-    private final String ADMIN_PATRONYMIC = "Викторович";
     private final String[][] STORE = new String[][]{{"1", null, "г. Минск", "ул. Платонова", "39", null}, {"2", null, "г. Минск", "ул. Берута", "9", "3"}, {"3", "Могилёвская обл.", "г. Бобруск", "ул. Чайковского", "2", "1"}};
     private final String[][] PRODUCT = new String[][]{{"1", "Ручка шариковая синяя \"Classic Stick\" (1,0 мм)", "1.30", "Шариковая ручка с прозрачным корпусом и колпачком. Цвет стержня: синий."}, {"2", "Ручка шариковая чёрная \"Classic Stick\" (1,0 мм)", "1.35", "Шариковая ручка с прозрачным корпусом и колпачком. Цвет стержня: чёрный."}, {"3", "Диск с учебной программой \"Правила дорожного движения 2020\"", "15.50", "Учебная программа предназначена для изучения Правил дорожного движения Республики Беларусь и подготовки будущих водителей транспортных средств категорий «B» и «C» к теоретическому экзамену ГАИ."}, {"4", "Ластик \"Elephant 300/80\"", "0.75", "Ластик Elephant 300/80 изготовлен из натурального материала. Применяется для стирания карандашных записей и рисунков. Эластичный и мягкий ластик не пачкает бумагу и не оставляет следов."}, {"5", "Тетрадь полуобщая в клетку \"Паттерн\" (48 листов)", "1.80", "Товар представлен в ассортименте, отгрузка осуществляется произвольно."}};
     private final String[] CASHIER = new String[]{"2", "Омаров", "Леонид", "Сергеевич", "Кассир", "Oules", "wasd"};
@@ -27,8 +25,7 @@ class AccountingServerApplicationTests {
             System.exit(-1);
         }
     };
-    private int NUM_OF_TRANSACTIONS = 9;
-    DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     @Ignore
     @Order(1)
@@ -45,6 +42,9 @@ class AccountingServerApplicationTests {
         System.out.println(service.getLoggedUser() != null);
         Assert.assertTrue(service.login(DEFAULT_ADMIN[5], DEFAULT_ADMIN[6]));
         String adminId = service.getLoggedUser()[0];
+        String ADMIN_PATRONYMIC = "Викторович";
+        String ADMIN_FORENAME = "Виктор";
+        String ADMIN_SURNAME = "Филиппович";
         Assert.assertTrue(service.update("user", new String[]{adminId, ADMIN_SURNAME, ADMIN_FORENAME, ADMIN_PATRONYMIC, null, ADMIN_LOGIN, ADMIN_PASSWORD}));
         String[] user = service.readOne("user", adminId);
         Assert.assertEquals(ADMIN_SURNAME, user[1]);
@@ -67,7 +67,7 @@ class AccountingServerApplicationTests {
         }
         for (int i = 0; i < STORE.length; ++i) {
             for (int j = 0; j < STORE[0].length; ++j) {
-                Assert.assertEquals(STORE[i][j], ((String[]) stores.get(i))[j]);
+                Assert.assertEquals(STORE[i][j], stores.get(i)[j]);
             }
         }
         service.logout();
@@ -86,7 +86,7 @@ class AccountingServerApplicationTests {
         }
         for (int i = 0; i < PRODUCT.length; ++i) {
             for (int j = 0; j < PRODUCT[0].length; ++j) {
-                Assert.assertEquals(PRODUCT[i][j], ((String[]) product.get(i))[j]);
+                Assert.assertEquals(PRODUCT[i][j], product.get(i)[j]);
             }
         }
         service.logout();
@@ -132,6 +132,7 @@ class AccountingServerApplicationTests {
     void someTransactions() {
         Assert.assertTrue(service.login(CASHIER[5], CASHIER[6]));
         int j = 1;
+        int NUM_OF_TRANSACTIONS = 9;
         for (int i = 0; i < NUM_OF_TRANSACTIONS; i++) {
             if (j > STORE.length) {
                 j = 1;
@@ -243,7 +244,7 @@ class AccountingServerApplicationTests {
         service.logout();
     }
 
-    @Ignore
+    @Test
     @Order(14)
     void safelyDelete() {
         Assert.assertTrue(service.login(ADMIN_LOGIN, ADMIN_PASSWORD));
@@ -251,7 +252,7 @@ class AccountingServerApplicationTests {
         service.logout();
     }
 
-    @Test
+    @Ignore
     @Order(15)
     void rest() {
         String[] curriencesCodes = new String[]{"USD", "EUR"};

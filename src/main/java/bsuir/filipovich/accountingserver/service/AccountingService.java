@@ -19,10 +19,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+@SuppressWarnings("unused")
 @Service
 public class AccountingService implements IService {
 
-    private LoginBean loggedUser;
+    private final LoginBean loggedUser;
 
     @Autowired
     public AccountingService(LoginBean loggedUser) {
@@ -77,14 +78,9 @@ public class AccountingService implements IService {
         if (id == null) {
             return null;
         } else {
-            UserEntity user = (UserEntity) getSession().load(UserEntity.class, Integer.parseInt(id));
+            UserEntity user = getSession().load(UserEntity.class, Integer.parseInt(id));
             return new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()};
         }
-    }
-
-    @Override
-    public String getMessage() {
-        return "zankoku no tenshi";
     }
 
     @Override
@@ -411,7 +407,7 @@ public class AccountingService implements IService {
                 break;
         }
         if (s == null)
-            return s;
+            return null;
         String rate = s.substring(s.lastIndexOf(":") + 1, s.lastIndexOf("}"));
         return String.valueOf(Double.parseDouble(value) / Double.parseDouble(rate));
     }
@@ -440,8 +436,8 @@ public class AccountingService implements IService {
 
     private void setAssortment(String store, String product, String quantity) {
         Session session = getSession();
-        StoreEntity storeEntity = (StoreEntity) session.load(StoreEntity.class, Integer.parseInt(store));
-        ProductEntity productEntity = (ProductEntity) session.load(ProductEntity.class, Integer.parseInt(product));
+        StoreEntity storeEntity = session.load(StoreEntity.class, Integer.parseInt(store));
+        ProductEntity productEntity = session.load(ProductEntity.class, Integer.parseInt(product));
         Query query = session.createQuery("from StoreProductEntity where storeByStoreId = :store and productByProductId = :product");
         query.setParameter("store", storeEntity);
         query.setParameter("product", productEntity);
@@ -697,7 +693,7 @@ public class AccountingService implements IService {
 
     private void mutoUser(String[] strings) {
         Session session = getSession();
-        UserEntity user = (UserEntity) session.load(UserEntity.class, Integer.parseInt(strings[0]));
+        UserEntity user = session.load(UserEntity.class, Integer.parseInt(strings[0]));
         if (strings[1] != null) {
             user.setSurname(strings[1]);
         }
