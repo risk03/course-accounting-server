@@ -655,7 +655,7 @@ public class AccountingService implements IService {
         query.setParameter("id", session.load(StoreEntity.class, Integer.parseInt(id)));
         for (Object o : query.list()) {
             StoreProductEntity entry = (StoreProductEntity) o;
-            arr.add(new String[]{String.valueOf(entry.getStoreProductId()), String.valueOf(entry.getStoreByStoreId()), String.valueOf(entry.getProductByProductId()), String.valueOf(entry.getQuantity())});
+            arr.add(new String[]{String.valueOf(entry.getStoreProductId()), String.valueOf(entry.getStoreByStoreId().getStoreId()), String.valueOf(entry.getProductByProductId().getProductId()), String.valueOf(entry.getQuantity())});
         }
         return arr;
     }
