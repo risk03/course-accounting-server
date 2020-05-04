@@ -26,8 +26,6 @@ public class RestController {
         return service.create(type, strings);
     }
 
-    ;
-
     @GetMapping("/readOne")
     String[] readOne(@RequestParam String type, @RequestParam String id) {
         return service.readOne(type, id);
@@ -94,7 +92,7 @@ public class RestController {
     }
 
     @GetMapping("/toCur")
-    String toCur(@RequestParam String product, @RequestParam String currency) {
-        return service.toCur(product, currency);
+    String toCur(@RequestParam String value, @RequestParam String currency) {
+        return service.toCur(value, currency);
     }
 }

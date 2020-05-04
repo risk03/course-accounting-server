@@ -50,9 +50,11 @@ public class AccountingService implements IService {
         if (this.loggedUser.getUser() != null) {
             return false;
         } else {
-            Query query = getSession().createQuery("from UserEntity where login = :login");
+            Session session = getSession();
+            Query query = session.createQuery("from UserEntity where login = :login");
             query.setParameter("login", login);
             List l = query.list();
+            session.close();
             if (l.size() == 0) {
                 return false;
             } else {
@@ -78,8 +80,11 @@ public class AccountingService implements IService {
         if (id == null) {
             return null;
         } else {
-            UserEntity user = getSession().load(UserEntity.class, Integer.parseInt(id));
-            return new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()};
+            Session session = getSession();
+            UserEntity user = session.load(UserEntity.class, Integer.parseInt(id));
+            String[] response = new String[]{String.valueOf(user.getUserId()), user.getSurname(), user.getForename(), user.getPatronymic(), user.getRole(), user.getLogin()};
+            session.close();
+            return response;
         }
     }
 
@@ -149,7 +154,7 @@ public class AccountingService implements IService {
                 case "assortment":
                     arr = intellegoAssortment(session, id);
                     break;
-                case "transactionentry":
+                case "entry":
                     arr = intellegoEntry(session, id);
                     break;
             }
@@ -295,15 +300,16 @@ public class AccountingService implements IService {
         for (int i = 0; i < l.size(); i++) {
             arr[i] = String.valueOf(((StoreProductEntity) l.get(i)).getStoreByStoreId().getStoreId());
         }
+        session.close();
         return arr;
     }
 
     @Override
     public ArrayList<String[]> getSalesByStoreReport(String from, String to) {
-        Session session = getSession();
         if (getLoggedUser() == null || !getLoggedUser()[4].equals("Заведующий")) {
             return null;
         }
+        Session session = getSession();
         ArrayList<String[]> arr = new ArrayList<>();
         double sum = 0;
         Query storeQuery = session.createQuery("from StoreEntity ");
@@ -330,17 +336,18 @@ public class AccountingService implements IService {
         for (int i = 0; i < arr.size(); i++) {
             arr.set(i, new String[]{arr.get(i)[0], arr.get(i)[1], String.valueOf(Double.parseDouble(arr.get(i)[1]) / sum)});
         }
+        session.close();
         return arr;
     }
 
     @Override
     public ArrayList<String[]> getSalesByProductReport(String from, String to) {
-        Session session = getSession();
         if (getLoggedUser() == null || !getLoggedUser()[4].equals("Заведующий")) {
             return null;
         }
         ArrayList<String[]> arr = new ArrayList<>();
         double sum = 0;
+        Session session = getSession();
         Query transactionQuery = session.createQuery("from TransactionEntity where date between :fr and :to");
         transactionQuery.setParameter("fr", Timestamp.valueOf(from));
         transactionQuery.setParameter("to", Timestamp.valueOf(to));
@@ -362,16 +369,17 @@ public class AccountingService implements IService {
         for (int i = 0; i < arr.size(); i++) {
             arr.set(i, new String[]{arr.get(i)[0], arr.get(i)[1], arr.get(i)[2], String.valueOf(Double.parseDouble(arr.get(i)[2]) / sum)});
         }
+        session.close();
         return arr;
     }
 
     @Override
     public ArrayList<String[]> getSalesByCashierReport(String from, String to) {
-        Session session = getSession();
         if (getLoggedUser() == null || !getLoggedUser()[4].equals("Заведующий")) {
             return null;
         }
         ArrayList<String[]> arr = new ArrayList<>();
+        Session session = getSession();
         Query cashierQuery = session.createQuery("from UserEntity");
         for (Object c : cashierQuery.list()) {
             UserEntity cashier = (UserEntity) c;
@@ -392,6 +400,7 @@ public class AccountingService implements IService {
             }
             arr.add(new String[]{String.valueOf(((UserEntity) c).getUserId()), String.valueOf(transactions.size()), String.valueOf(sum)});
         }
+        session.close();
         return arr;
     }
 
@@ -454,6 +463,7 @@ public class AccountingService implements IService {
             session.persist(newE);
             session.getTransaction().commit();
         }
+        session.close();
     }
 
     private boolean setEntry(String transaction, String product, String quantity) {
@@ -477,6 +487,7 @@ public class AccountingService implements IService {
             productsInStore = productsInStore.add(entry.getQuantity());
         }
         if (productsInTransaction.add(productsInStore).compareTo(BigDecimal.valueOf(Double.parseDouble(quantity))) < 0) {
+            session.close();
             return false;
         } else {
             session.beginTransaction();
@@ -495,6 +506,7 @@ public class AccountingService implements IService {
             session.getTransaction().commit();
         }
         this.setAssortment(String.valueOf(transactionEntity.getStoreByStoreId().getStoreId()), String.valueOf(productEntity.getProductId()), String.valueOf(productsInTransaction.add(productsInStore).subtract(BigDecimal.valueOf(Double.parseDouble(quantity)))));
+        session.close();
         return true;
     }
 
@@ -513,6 +525,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(user);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void creoStore(String[] strings) {
@@ -537,6 +550,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(store);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void creoTransaction(String[] strings) {
@@ -549,6 +563,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(store);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void creoProduct(String[] strings) {
@@ -561,6 +576,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(product);
         session.getTransaction().commit();
+        session.close();
     }
 
     private String[] intellegoProduct(Session session, String id) {
@@ -613,7 +629,7 @@ public class AccountingService implements IService {
         query.setParameter("id", Integer.parseInt(id));
         for (Object o : query.list()) {
             StoreEntity store = (StoreEntity) o;
-            arr = new String[]{String.valueOf(store.getStoreId()), store.getRegion().equals("") ? null : store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding().equals("") ? null : store.getBuilding()};
+            arr = new String[]{String.valueOf(store.getStoreId()), store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding()};
         }
         return arr;
     }
@@ -623,7 +639,7 @@ public class AccountingService implements IService {
         final Query query = session.createQuery("from StoreEntity");
         for (Object o : query.list()) {
             StoreEntity store = (StoreEntity) o;
-            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion().equals("") ? null : store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding().equals("") ? null : store.getBuilding()});
+            arr.add(new String[]{String.valueOf(store.getStoreId()), store.getRegion(), store.getCity(), store.getStreet(), store.getNumber(), store.getBuilding()});
         }
         return arr;
     }
@@ -715,6 +731,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(user);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void mutoStore(String[] strings) {
@@ -733,6 +750,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(store);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void mutoTransaction(String[] strings) {
@@ -747,6 +765,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(store);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void mutoProduct(String[] strings) {
@@ -761,6 +780,7 @@ public class AccountingService implements IService {
         session.beginTransaction();
         session.save(product);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void perdoUser(String id) {
@@ -769,6 +789,7 @@ public class AccountingService implements IService {
         UserEntity user = session.load(UserEntity.class, Integer.parseInt(id));
         session.delete(user);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void perdoStore(String id) {
@@ -777,6 +798,7 @@ public class AccountingService implements IService {
         StoreEntity store = session.load(StoreEntity.class, Integer.parseInt(id));
         session.delete(store);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void perdoTransaction(String id) {
@@ -785,6 +807,7 @@ public class AccountingService implements IService {
         TransactionEntity store = session.load(TransactionEntity.class, Integer.parseInt(id));
         session.delete(store);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void perdoProduct(String id) {
@@ -793,6 +816,7 @@ public class AccountingService implements IService {
         ProductEntity product = session.load(ProductEntity.class, Integer.parseInt(id));
         session.delete(product);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void perdoEntry(String id) {
@@ -801,6 +825,7 @@ public class AccountingService implements IService {
         ProductTransactionEntity product = session.load(ProductTransactionEntity.class, Integer.parseInt(id));
         session.delete(product);
         session.getTransaction().commit();
+        session.close();
     }
 
     private void perdoAssortment(String id) {
@@ -809,5 +834,6 @@ public class AccountingService implements IService {
         StoreProductEntity product = session.load(StoreProductEntity.class, Integer.parseInt(id));
         session.delete(product);
         session.getTransaction().commit();
+        session.close();
     }
 }
